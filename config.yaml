@@ -1,0 +1,111 @@
+# =============================================================================
+# GIS Job Monitor — configuration
+# Edit this file to add companies / boards and tune what counts as a match.
+# No secrets go in here (API keys + SMTP come from environment / GitHub Secrets).
+# =============================================================================
+
+notify:
+  # ntfy = free instant phone push, no signup. Install the "ntfy" app, then
+  # subscribe to the EXACT topic string below. Treat it like a password:
+  # anyone who knows the topic can read your alerts, so make it long + random.
+  # You can also set it as the NTFY_TOPIC secret (that overrides this value).
+  ntfy_topic: "danny-gis-jobs-CHANGE-ME-7f3kq9"
+  ntfy_priority: high          # max | high | default | low | min
+
+  # Optional second channel. Needs SMTP_HOST / SMTP_USER / SMTP_PASS env vars.
+  email_enabled: false
+  email_to: "you@example.com"
+
+# -----------------------------------------------------------------------------
+# What makes something a match. Scoring (per posting):
+#   +3 GIS keyword in the title (+1 if only in the description)
+#   +1 for each of YOUR stack keywords found
+#   +2 if the title is a level you fit (technician/analyst/specialist/etc.)
+#   -2 if the title looks senior/lead/manager (kept, just ranked lower)
+#   +1 if it's remote
+# A posting is sent only if it's NEW and score >= min_score (and remote, if remote_only).
+# -----------------------------------------------------------------------------
+filters:
+  remote_only: true            # flip to false to also catch on-site OC jobs (see bottom)
+
+  include_keywords:            # at least ONE must appear or the posting is ignored
+    [gis, geospatial, arcgis, esri, cartograph, spatial, geographic, mapping, geomatics]
+
+  boost_keywords:              # your toolbox — each one found raises the score
+    [arcpy, python, "experience builder", arcade, survey123, "arcgis online", agol,
+     "arcgis pro", "arcgis enterprise", fme, dashboard, "web map", "web appbuilder",
+     sql, javascript, autocad, "field maps", tableau, qgis]
+
+  good_titles:                 # levels you're a strong fit for
+    [technician, analyst, specialist, associate, junior, entry, developer,
+     cartographer, "gis i", "gis ii", "analyst i", "analyst ii", coordinator]
+
+  senior_titles:               # deprioritized (not dropped)
+    [senior, " lead", principal, manager, director, architect, " iii", " iv",
+     supervisor, chief, "vp ", staff]
+
+  min_score: 2
+
+# -----------------------------------------------------------------------------
+# SOURCES
+# type: greenhouse | lever | usajobs | rss | workday
+#
+# Rock-solid (clean JSON APIs): greenhouse, lever, usajobs.
+# Need a one-time URL check: rss, workday (URLs change per employer).
+# To add a Greenhouse company: open their careers page; if the URL is
+#   job-boards.greenhouse.io/SLUG  -> use that SLUG.
+# To add a Lever company: jobs.lever.co/SLUG -> use that SLUG.
+# -----------------------------------------------------------------------------
+sources:
+
+  # ---- Verified this build ----
+  - name: "Geocgi"
+    type: greenhouse
+    slug: geocgi
+
+  - name: "Ardent"
+    type: greenhouse
+    slug: ardentmc
+
+  - name: "USAJOBS (federal, remote GIS)"
+    type: usajobs
+    keyword: GIS
+    # job_category: "0150"     # optional: 0150 Geography, 1370 Cartography
+
+  # ---- Templates: fill in a slug and flip enabled to true ----
+  - name: "Example Lever company"
+    type: lever
+    slug: REPLACE_ME
+    enabled: false
+
+  # ApplyToJob/JazzHR (e.g. Celerity) — confirm this feed loads in a browser
+  # first; if it 404s, JazzHR isn't exposing RSS for that account and you can
+  # safely leave it disabled. The script ignores a broken source gracefully.
+  - name: "Celerity Consulting"
+    type: rss
+    url: "https://celerityconsultinggroupinc.applytojob.com/apply/jobs/rss"
+    enabled: false
+
+  # Generic GIS job-board RSS (add any board that offers a feed)
+  - name: "Example GIS board RSS"
+    type: rss
+    url: "https://www.example.com/jobs.rss"
+    enabled: false
+
+  # ---- Orange County local-government track ----
+  # These are on-site, so they only show up if you set remote_only: false above.
+  # County of Orange & OCTA run on GovernmentJobs.com (NeoGov); water districts
+  # often use CalOpps. Open the agency's job portal, look for an RSS/"subscribe"
+  # link, paste it here, and enable.
+  - name: "County of Orange (GovernmentJobs RSS)"
+    type: rss
+    url: "PASTE_AGENCY_RSS_URL"
+    enabled: false
+  - name: "OCTA (GovernmentJobs RSS)"
+    type: rss
+    url: "PASTE_AGENCY_RSS_URL"
+    enabled: false
+  - name: "Moulton Niguel / Santa Margarita WD (CalOpps RSS)"
+    type: rss
+    url: "PASTE_AGENCY_RSS_URL"
+    enabled: false
