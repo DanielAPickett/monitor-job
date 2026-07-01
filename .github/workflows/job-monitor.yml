@@ -1,0 +1,47 @@
+name: GIS Job Monitor
+
+on:
+  schedule:
+    # Every 15 minutes. GitHub may delay scheduled runs under load, so treat
+    # this as "within ~15-20 min of a posting going live," not literally instant.
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}   # lets you run it on demand from the Actions tab
+
+permissions:
+  contents: write          # needed so the bot can commit seen_jobs.json back
+
+concurrency:
+  group: gis-job-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Run monitor
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          USAJOBS_KEY: ${{ secrets.USAJOBS_KEY }}
+          USAJOBS_EMAIL: ${{ secrets.USAJOBS_EMAIL }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+        run: python job_monitor.py
+
+      - name: Persist seen-jobs state
+        run: |
+          git config user.name "gis-job-monitor[bot]"
+          git config user.email "gis-job-monitor@users.noreply.github.com"
+          git add seen_jobs.json
+          git diff --staged --quiet || git commit -m "Update seen jobs [skip ci]"
+          git push
