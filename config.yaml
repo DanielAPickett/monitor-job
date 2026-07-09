@@ -1,37 +1,47 @@
 # =============================================================================
-# GIS Job Monitor — configuration
-# Edit this file to add companies / boards and tune what counts as a match.
+# GIS Job Monitor — configuration (v2)
+# Remote jobs from ANYWHERE pass. In-person/hybrid jobs pass ONLY if located
+# in one of the local_areas below (Orange County, CA).
 # No secrets go in here (API keys + SMTP come from environment / GitHub Secrets).
 # =============================================================================
 
 notify:
-  # ntfy = free instant phone push, no signup. Install the "ntfy" app, then
-  # subscribe to the EXACT topic string below. Treat it like a password:
-  # anyone who knows the topic can read your alerts, so make it long + random.
-  # You can also set it as the NTFY_TOPIC secret (that overrides this value).
-  ntfy_topic: "danny-gis-jobs-CHANGE-ME-7f3kq9"
+  # Overridden by the NTFY_TOPIC repo secret if set (yours is).
+  ntfy_topic: "danny-gis-jobs-CHANGE-ME"
   ntfy_priority: high          # max | high | default | low | min
 
-  # Optional second channel. Needs SMTP_HOST / SMTP_USER / SMTP_PASS env vars.
+  # Optional second channel. Needs SMTP_HOST / SMTP_USER / SMTP_PASS secrets.
   email_enabled: false
   email_to: "you@example.com"
 
 # -----------------------------------------------------------------------------
-# What makes something a match. Scoring (per posting):
+# Scoring (per posting):
 #   +3 GIS keyword in the title (+1 if only in the description)
 #   +1 for each of YOUR stack keywords found
 #   +2 if the title is a level you fit (technician/analyst/specialist/etc.)
 #   -2 if the title looks senior/lead/manager (kept, just ranked lower)
 #   +1 if it's remote
-# A posting is sent only if it's NEW and score >= min_score (and remote, if remote_only).
+# Sent only if NEW and score >= min_score AND (remote OR located in local_areas).
 # -----------------------------------------------------------------------------
 filters:
-  remote_only: true            # flip to false to also catch on-site OC jobs (see bottom)
+  remote_only: true            # with local_areas below this means:
+                               # "remote anywhere + OC exception"
+
+  # Non-remote (in-person/hybrid) jobs still pass if their location contains
+  # any of these strings. Add/remove cities freely.
+  local_areas:
+    ["orange county", "irvine", "santa ana", "anaheim", "orange, ca",
+     "costa mesa", "tustin", "fullerton", "huntington beach", "newport",
+     "mission viejo", "lake forest", "laguna niguel", "laguna hills",
+     "laguna beach", "aliso viejo", "san clemente", "san juan capistrano",
+     "rancho santa margarita", "dana point", "yorba linda", "brea",
+     "garden grove", "westminster", "fountain valley", "buena park",
+     "cypress", "placentia", "seal beach", "los alamitos", "stanton"]
 
   include_keywords:            # at least ONE must appear or the posting is ignored
     [gis, geospatial, arcgis, esri, cartograph, spatial, geographic, mapping, geomatics]
 
-  boost_keywords:              # your toolbox — each one found raises the score
+  boost_keywords:              # your stack — each one found raises the score
     [arcpy, python, "experience builder", arcade, survey123, "arcgis online", agol,
      "arcgis pro", "arcgis enterprise", fme, dashboard, "web map", "web appbuilder",
      sql, javascript, autocad, "field maps", tableau, qgis]
@@ -49,16 +59,15 @@ filters:
 # -----------------------------------------------------------------------------
 # SOURCES
 # type: greenhouse | lever | usajobs | rss | workday
-#
-# Rock-solid (clean JSON APIs): greenhouse, lever, usajobs.
-# Need a one-time URL check: rss, workday (URLs change per employer).
-# To add a Greenhouse company: open their careers page; if the URL is
-#   job-boards.greenhouse.io/SLUG  -> use that SLUG.
-# To add a Lever company: jobs.lever.co/SLUG -> use that SLUG.
+# Greenhouse: careers page job-boards.greenhouse.io/SLUG -> use that SLUG.
+# Lever: jobs.lever.co/SLUG -> use that SLUG.
+# GovernmentJobs (NeoGov) RSS: agency careers page
+#   governmentjobs.com/careers/AGENCY -> feed is
+#   https://www.governmentjobs.com/SearchEngine/JobsFeed?agency=AGENCY
 # -----------------------------------------------------------------------------
 sources:
 
-  # ---- Verified this build ----
+  # ---- Remote-leaning (federal contractors; most need US citizenship) ----
   - name: "Geocgi"
     type: greenhouse
     slug: geocgi
@@ -72,40 +81,25 @@ sources:
     keyword: GIS
     # job_category: "0150"     # optional: 0150 Geography, 1370 Cartography
 
-  # ---- Templates: fill in a slug and flip enabled to true ----
+  # ---- Orange County local-government (in-person/hybrid, pass via local_areas) ----
+  # IMPORTANT: verify each feed URL loads XML in your browser before trusting it.
+  # If an agency's careers page is governmentjobs.com/careers/SOMETHING, then
+  # SOMETHING is the agency value below. A broken feed is skipped silently.
+  - name: "County of Orange"
+    type: rss
+    url: "https://www.governmentjobs.com/SearchEngine/JobsFeed?agency=oc"
+
+  - name: "OCTA"
+    type: rss
+    url: "https://www.governmentjobs.com/SearchEngine/JobsFeed?agency=octa"
+
+  # ---- Templates: fill in and set enabled: true ----
   - name: "Example Lever company"
     type: lever
     slug: REPLACE_ME
     enabled: false
 
-  # ApplyToJob/JazzHR (e.g. Celerity) — confirm this feed loads in a browser
-  # first; if it 404s, JazzHR isn't exposing RSS for that account and you can
-  # safely leave it disabled. The script ignores a broken source gracefully.
-  - name: "Celerity Consulting"
+  - name: "Example CalOpps / other agency RSS"
     type: rss
-    url: "https://celerityconsultinggroupinc.applytojob.com/apply/jobs/rss"
-    enabled: false
-
-  # Generic GIS job-board RSS (add any board that offers a feed)
-  - name: "Example GIS board RSS"
-    type: rss
-    url: "https://www.example.com/jobs.rss"
-    enabled: false
-
-  # ---- Orange County local-government track ----
-  # These are on-site, so they only show up if you set remote_only: false above.
-  # County of Orange & OCTA run on GovernmentJobs.com (NeoGov); water districts
-  # often use CalOpps. Open the agency's job portal, look for an RSS/"subscribe"
-  # link, paste it here, and enable.
-  - name: "County of Orange (GovernmentJobs RSS)"
-    type: rss
-    url: "PASTE_AGENCY_RSS_URL"
-    enabled: false
-  - name: "OCTA (GovernmentJobs RSS)"
-    type: rss
-    url: "PASTE_AGENCY_RSS_URL"
-    enabled: false
-  - name: "Moulton Niguel / Santa Margarita WD (CalOpps RSS)"
-    type: rss
-    url: "PASTE_AGENCY_RSS_URL"
+    url: "PASTE_FEED_URL"
     enabled: false
