@@ -315,9 +315,14 @@ def score_job(job: Job, f: dict) -> Job:
 
 
 def passes(job: Job, f: dict) -> bool:
-    if f.get("remote_only", True) and not job.remote:
+    """Remote jobs from anywhere pass; non-remote jobs pass only if their
+    location matches an entry in filters.local_areas (e.g. Orange County)."""
+    if job.score < f.get("min_score", 2):
         return False
-    return job.score >= f.get("min_score", 2)
+    if job.remote or not f.get("remote_only", True):
+        return True
+    loc = job.location.lower()
+    return any(a.lower() in loc for a in f.get("local_areas", []))
 
 
 # --------------------------------------------------------------------------- #
@@ -499,6 +504,7 @@ def selftest() -> None:
         "senior_titles": ["senior", "lead", "principal", "manager", "director",
                           "architect", "iii", "iv", "supervisor"],
         "min_score": 2,
+        "local_areas": ["orange county", "irvine", "santa ana", "anaheim"],
     }
     fixtures = [
         Job(id="t1", title="GIS Analyst I", company="ACME", location="Remote, US",
@@ -517,6 +523,9 @@ def selftest() -> None:
             url="http://x/5", source="t",
             snippet="Build web maps with Arcade and the ArcGIS JavaScript API; SQL.",
             remote=True),
+        Job(id="t6", title="GIS Analyst I", company="County of Orange",
+            location="Santa Ana, CA", url="http://x/6", source="t",
+            snippet="ArcGIS Pro, parcel data, dashboards.", remote=False),
     ]
     for j in fixtures:
         score_job(j, f)
@@ -526,8 +535,9 @@ def selftest() -> None:
 
     assert passes(fixtures[0], f), "GIS Analyst I should match"
     assert not passes(fixtures[2], f), "Barista should not match"
-    assert not passes(fixtures[3], f), "non-remote should be filtered (remote_only)"
+    assert not passes(fixtures[3], f), "non-remote outside local_areas should be filtered"
     assert passes(fixtures[4], f), "Geospatial Developer should match"
+    assert passes(fixtures[5], f), "OC in-person job should pass via local_areas"
     # senior role: matches keyword but is deprioritized; still surfaces if score high enough
     print("\n  notification preview:")
     print(f"    Title: GIS: {fixtures[0].title}")
